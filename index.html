@@ -1,0 +1,1072 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Alexia Melusine - Ecossistema Digital 3D</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700;900&family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+            "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+        }
+    }
+    </script>
+    
+    <style>
+        :root {
+            --bg: #0a0a0f;
+            --bg-secondary: #12121a;
+            --fg: #f0e6d3;
+            --muted: #8b7355;
+            --accent: #ff4d6d;
+            --accent-secondary: #ff8c42;
+            --accent-tertiary: #c9184a;
+            --gold: #d4a574;
+            --card: rgba(18, 18, 26, 0.8);
+            --border: rgba(212, 165, 116, 0.2);
+            --glow: rgba(255, 77, 109, 0.4);
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Space Grotesk', sans-serif;
+            background: var(--bg);
+            color: var(--fg);
+            overflow-x: hidden;
+            min-height: 100vh;
+        }
+        
+        .font-display {
+            font-family: 'Playfair Display', serif;
+        }
+        
+        #canvas-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+        }
+        
+        .content {
+            position: relative;
+            z-index: 10;
+            pointer-events: none;
+        }
+        
+        .content * {
+            pointer-events: auto;
+        }
+        
+        .glass-card {
+            background: linear-gradient(135deg, rgba(18, 18, 26, 0.9) 0%, rgba(26, 26, 36, 0.8) 100%);
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--border);
+            border-radius: 24px;
+        }
+        
+        .social-btn {
+            position: relative;
+            overflow: hidden;
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        
+        .social-btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent);
+            transition: left 0.5s;
+        }
+        
+        .social-btn:hover::before {
+            left: 100%;
+        }
+        
+        .social-btn:hover {
+            transform: translateY(-4px) scale(1.02);
+            box-shadow: 0 20px 40px rgba(255, 77, 109, 0.2);
+        }
+        
+        .social-btn:active {
+            transform: translateY(-2px) scale(0.98);
+        }
+        
+        .category-section {
+            opacity: 0;
+            transform: translateY(40px);
+            transition: all 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        
+        .category-section.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+        
+        .stat-number {
+            background: linear-gradient(135deg, var(--accent) 0%, var(--gold) 50%, var(--accent-secondary) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        .glow-border {
+            position: relative;
+        }
+        
+        .glow-border::after {
+            content: '';
+            position: absolute;
+            inset: -2px;
+            border-radius: 26px;
+            background: linear-gradient(135deg, var(--accent), var(--gold), var(--accent-secondary));
+            z-index: -1;
+            opacity: 0;
+            transition: opacity 0.4s;
+        }
+        
+        .glow-border:hover::after {
+            opacity: 0.6;
+            animation: glowPulse 2s infinite;
+        }
+        
+        @keyframes glowPulse {
+            0%, 100% { opacity: 0.4; }
+            50% { opacity: 0.8; }
+        }
+        
+        @keyframes float {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-10px); }
+        }
+        
+        .floating {
+            animation: float 4s ease-in-out infinite;
+        }
+        
+        .particle {
+            position: absolute;
+            width: 4px;
+            height: 4px;
+            background: var(--accent);
+            border-radius: 50%;
+            pointer-events: none;
+            opacity: 0;
+        }
+        
+        .legend-item {
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+        
+        .legend-item:hover {
+            transform: translateX(8px);
+        }
+        
+        .legend-item.active {
+            background: rgba(255, 77, 109, 0.1);
+            border-left: 3px solid var(--accent);
+        }
+        
+        .tooltip {
+            position: fixed;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            padding: 12px 16px;
+            border-radius: 12px;
+            font-size: 14px;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.2s;
+            z-index: 1000;
+            max-width: 250px;
+        }
+        
+        .tooltip.visible {
+            opacity: 1;
+        }
+        
+        .progress-ring {
+            transform: rotate(-90deg);
+        }
+        
+        .progress-ring-circle {
+            transition: stroke-dashoffset 1s ease-in-out;
+        }
+        
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after {
+                animation-duration: 0.01ms !important;
+                animation-iteration-count: 1 !important;
+                transition-duration: 0.01ms !important;
+            }
+        }
+        
+        .icon-wrapper {
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 10px;
+            flex-shrink: 0;
+        }
+        
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.8);
+            backdrop-filter: blur(10px);
+            z-index: 1000;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s;
+        }
+        
+        .modal-overlay.active {
+            opacity: 1;
+            pointer-events: auto;
+        }
+        
+        .modal-content {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) scale(0.9);
+            z-index: 1001;
+            max-width: 600px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+            opacity: 0;
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        
+        .modal-overlay.active .modal-content {
+            opacity: 1;
+            transform: translate(-50%, -50%) scale(1);
+        }
+        
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        
+        ::-webkit-scrollbar-track {
+            background: var(--bg-secondary);
+        }
+        
+        ::-webkit-scrollbar-thumb {
+            background: var(--muted);
+            border-radius: 4px;
+        }
+        
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--accent);
+        }
+    </style>
+</head>
+<body>
+    <div id="canvas-container"></div>
+    
+    <div class="tooltip" id="tooltip"></div>
+    
+    <div class="content min-h-screen">
+        <!-- Header -->
+        <header class="pt-8 pb-4 px-4 md:px-8">
+            <nav class="max-w-7xl mx-auto flex items-center justify-between">
+                <div class="flex items-center gap-4">
+                    <div class="w-12 h-12 rounded-full bg-gradient-to-br from-[var(--accent)] to-[var(--gold)] flex items-center justify-center">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M12 2L2 7l10 5 10-5-10-5z"/>
+                            <path d="M2 17l10 5 10-5"/>
+                            <path d="M2 12l10 5 10-5"/>
+                        </svg>
+                    </div>
+                    <div>
+                        <h1 class="font-display text-xl font-bold">Alexia Melusine</h1>
+                        <p class="text-xs text-[var(--muted)]">Ecossistema Digital</p>
+                    </div>
+                </div>
+                
+                <div class="flex items-center gap-3">
+                    <button id="view-toggle" class="glass-card px-4 py-2 text-sm flex items-center gap-2 hover:border-[var(--accent)] transition-colors">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="12" cy="12" r="10"/>
+                            <path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/>
+                            <path d="M2 12h20"/>
+                        </svg>
+                        <span>3D View</span>
+                    </button>
+                </div>
+            </nav>
+        </header>
+        
+        <!-- Hero -->
+        <section class="px-4 md:px-8 py-8">
+            <div class="max-w-7xl mx-auto text-center mb-8">
+                <p class="text-[var(--muted)] text-sm tracking-widest uppercase mb-4">28 Plataformas Conectadas</p>
+                <h2 class="font-display text-4xl md:text-6xl lg:text-7xl font-black mb-6 leading-tight">
+                    Meu Universo<br/>
+                    <span class="stat-number">Digital</span>
+                </h2>
+                <p class="text-[var(--muted)] max-w-2xl mx-auto text-lg">
+                    Uma presença multimidia expandindo por todas as principais plataformas de conteudo e comunidade.
+                </p>
+            </div>
+            
+            <!-- Stats Cards -->
+            <div class="max-w-5xl mx-auto grid grid-cols-2 md:grid-cols-4 gap-4 mb-12">
+                <div class="glass-card p-6 text-center category-section" data-delay="0">
+                    <div class="text-3xl md:text-4xl font-black stat-number mb-2">28</div>
+                    <div class="text-sm text-[var(--muted)]">Redes Sociais</div>
+                </div>
+                <div class="glass-card p-6 text-center category-section" data-delay="100">
+                    <div class="text-3xl md:text-4xl font-black stat-number mb-2">15</div>
+                    <div class="text-sm text-[var(--muted)]">Plataformas</div>
+                </div>
+                <div class="glass-card p-6 text-center category-section" data-delay="200">
+                    <div class="text-3xl md:text-4xl font-black stat-number mb-2">3</div>
+                    <div class="text-sm text-[var(--muted)]">Paginas Oficiais</div>
+                </div>
+                <div class="glass-card p-6 text-center category-section" data-delay="300">
+                    <div class="text-3xl md:text-4xl font-black stat-number mb-2">3</div>
+                    <div class="text-sm text-[var(--muted)]">GitHub Orgs</div>
+                </div>
+            </div>
+        </section>
+        
+        <!-- Main Content Grid -->
+        <section class="px-4 md:px-8 pb-16">
+            <div class="max-w-7xl mx-auto grid lg:grid-cols-3 gap-8">
+                
+                <!-- Chart Legend Panel -->
+                <div class="lg:col-span-1">
+                    <div class="glass-card p-6 sticky top-8">
+                        <h3 class="font-display text-xl font-bold mb-6">Distribuicao</h3>
+                        
+                        <div class="space-y-3" id="legend-container">
+                            <!-- Generated by JS -->
+                        </div>
+                        
+                        <div class="mt-8 pt-6 border-t border-[var(--border)]">
+                            <h4 class="text-sm text-[var(--muted)] mb-4">Foco Principal</h4>
+                            <div class="flex items-center gap-3">
+                                <svg class="progress-ring" width="60" height="60">
+                                    <circle cx="30" cy="30" r="26" stroke="var(--border)" stroke-width="4" fill="none"/>
+                                    <circle class="progress-ring-circle" cx="30" cy="30" r="26" stroke="var(--accent)" stroke-width="4" fill="none" stroke-linecap="round" stroke-dasharray="163.36" stroke-dashoffset="163.36" id="progress-circle"/>
+                                </svg>
+                                <div>
+                                    <div class="font-bold">Video Curto</div>
+                                    <div class="text-sm text-[var(--muted)]">TikTok + Kwai</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Social Networks Grid -->
+                <div class="lg:col-span-2">
+                    <div id="social-grid" class="space-y-8">
+                        <!-- Generated by JS -->
+                    </div>
+                </div>
+            </div>
+        </section>
+        
+        <!-- Official Pages Section -->
+        <section class="px-4 md:px-8 py-16 bg-gradient-to-b from-transparent to-[var(--bg-secondary)]">
+            <div class="max-w-7xl mx-auto">
+                <div class="text-center mb-12">
+                    <h3 class="font-display text-3xl md:text-4xl font-bold mb-4">Paginas Oficiais</h3>
+                    <p class="text-[var(--muted)]">Hubs centrais do ecossistema</p>
+                </div>
+                
+                <div class="grid md:grid-cols-3 gap-6" id="official-pages">
+                    <!-- Generated by JS -->
+                </div>
+            </div>
+        </section>
+        
+        <!-- GitHub Section -->
+        <section class="px-4 md:px-8 py-16">
+            <div class="max-w-7xl mx-auto">
+                <div class="text-center mb-12">
+                    <h3 class="font-display text-3xl md:text-4xl font-bold mb-4">GitHub</h3>
+                    <p class="text-[var(--muted)]">Projetos e organizacoes</p>
+                </div>
+                
+                <div class="grid md:grid-cols-3 gap-6" id="github-pages">
+                    <!-- Generated by JS -->
+                </div>
+            </div>
+        </section>
+        
+        <!-- Footer -->
+        <footer class="px-4 md:px-8 py-8 border-t border-[var(--border)]">
+            <div class="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
+                <div class="text-sm text-[var(--muted)]">
+                    Alexia Melusine - Ecossistema Digital Completo
+                </div>
+                <div class="text-sm text-[var(--muted)]">
+                    28 Redes | 3 Paginas Oficiais | 3 GitHub Orgs
+                </div>
+            </div>
+        </footer>
+    </div>
+    
+    <!-- Modal -->
+    <div class="modal-overlay" id="modal">
+        <div class="modal-content glass-card p-8">
+            <button class="absolute top-4 right-4 w-10 h-10 rounded-full bg-[var(--bg)] flex items-center justify-center hover:bg-[var(--accent)] transition-colors" id="close-modal">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M18 6L6 18M6 6l12 12"/>
+                </svg>
+            </button>
+            <div id="modal-body"></div>
+        </div>
+    </div>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+        
+        // ============================================
+        // DATA
+        // ============================================
+        const socialNetworks = {
+            tiktok: {
+                name: 'TikTok',
+                color: '#ff0050',
+                accounts: [
+                    { name: '@alexia.melusine', url: 'https://www.tiktok.com/@alexia.melusine', primary: true },
+                    { name: '@espelhosdepombagira', url: 'https://www.tiktok.com/@espelhosdepombagira?lang=pt-BR' },
+                    { name: '@almasdepombagira', url: 'https://www.tiktok.com/@almasdepombagira?lang=pt-BR' },
+                    { name: '@alexiarosadefogo', url: 'https://www.tiktok.com/@alexiarosadefogo?lang=pt-BR' }
+                ]
+            },
+            youtube: {
+                name: 'YouTube',
+                color: '#ff0000',
+                accounts: [
+                    { name: '@almasdepombagira', url: 'https://www.youtube.com/@almasdepombagira', primary: true }
+                ]
+            },
+            instagram: {
+                name: 'Instagram',
+                color: '#e4405f',
+                accounts: [
+                    { name: '@almasdepombagira', url: 'https://www.instagram.com/almasdepombagira/', primary: true },
+                    { name: '@alexiamelusine', url: 'https://www.instagram.com/alexiamelusine/' }
+                ]
+            },
+            threads: {
+                name: 'Threads',
+                color: '#000000',
+                accounts: [
+                    { name: '@almasdepombagira', url: 'https://www.threads.com/@almasdepombagira' },
+                    { name: '@alexiamelusine', url: 'https://www.threads.com/@alexiamelusine' }
+                ]
+            },
+            facebook: {
+                name: 'Facebook',
+                color: '#1877f2',
+                accounts: [
+                    { name: 'alexia.tsan.7', url: 'https://www.facebook.com/alexia.tsan.7', primary: true }
+                ]
+            },
+            bsky: {
+                name: 'Bluesky',
+                color: '#0085ff',
+                accounts: [
+                    { name: '@almasdepombagira.bsky.social', url: 'https://bsky.app/profile/almasdepombagira.bsky.social', primary: true }
+                ]
+            },
+            metaai: {
+                name: 'Meta AI',
+                color: '#0668e1',
+                accounts: [
+                    { name: '@alexiamelusine', url: 'https://www.meta.ai/@alexiamelusine', primary: true }
+                ]
+            },
+            sora: {
+                name: 'Sora',
+                color: '#10a37f',
+                accounts: [
+                    { name: '@alexialuzdeferro', url: 'https://sora.chatgpt.com/profile/alexialuzdeferro', primary: true }
+                ]
+            },
+            telegram: {
+                name: 'Telegram',
+                color: '#0088cc',
+                accounts: [
+                    { name: '@pomba_giras', url: 'https://t.me/pomba_giras', primary: true }
+                ]
+            },
+            whatsapp: {
+                name: 'WhatsApp',
+                color: '#25d366',
+                accounts: [
+                    { name: 'Canal Oficial', url: 'https://whatsapp.com/channel/0029VbBs2AnJkK7J9J0nLr2G', primary: true }
+                ]
+            },
+            discord: {
+                name: 'Discord',
+                color: '#5865f2',
+                accounts: [
+                    { name: 'Servidor', url: 'https://discord.gg/gWZP8R7Dqu', primary: true }
+                ]
+            },
+            pinterest: {
+                name: 'Pinterest',
+                color: '#e60023',
+                accounts: [
+                    { name: '@almasdepombagira', url: 'https://br.pinterest.com/almasdepombagira/', primary: true }
+                ]
+            },
+            kwai: {
+                name: 'Kwai',
+                color: '#ff4500',
+                accounts: [
+                    { name: '@AlmasdePombagira', url: 'https://www.kwai.com/@AlmasdePombagira', primary: true },
+                    { name: '@AlexiaRosadeFogo', url: 'https://www.kwai.com/@AlexiaRosadeFogo' },
+                    { name: '@espelhosdepombagira', url: 'https://www.kwai.com/@espelhosdepombagira' }
+                ]
+            },
+            reddit: {
+                name: 'Reddit',
+                color: '#ff4500',
+                accounts: [
+                    { name: 'u/Alexia-Luz-de-Ferro', url: 'https://www.reddit.com/user/Alexia-Luz-de-Ferro/', primary: true }
+                ]
+            },
+            x: {
+                name: 'X (Twitter)',
+                color: '#000000',
+                accounts: [
+                    { name: '@PambuNjila', url: 'https://x.com/PambuNjila', primary: true }
+                ]
+            },
+            substack: {
+                name: 'Substack',
+                color: '#ff671d',
+                accounts: [
+                    { name: '@alexiamelusine', url: 'https://substack.com/@alexiamelusine', primary: true }
+                ]
+            },
+            medium: {
+                name: 'Medium',
+                color: '#00ab6c',
+                accounts: [
+                    { name: '@alexiamelusine', url: 'https://medium.com/@alexiamelusine', primary: true }
+                ]
+            },
+            mastodon: {
+                name: 'Mastodon',
+                color: '#6364ff',
+                accounts: [
+                    { name: '@alexiamelusine', url: 'https://mastodon.social/@alexiamelusine', primary: true }
+                ]
+            },
+            snapchat: {
+                name: 'Snapchat',
+                color: '#fffc00',
+                accounts: [
+                    { name: '@alexiamelusine', url: 'https://www.snapchat.com/@alexiamelusine', primary: true }
+                ]
+            },
+            tumblr: {
+                name: 'Tumblr',
+                color: '#36465d',
+                accounts: [
+                    { name: 'alexiamelusine', url: 'https://www.tumblr.com/alexiamelusine', primary: true }
+                ]
+            },
+            spotify: {
+                name: 'Spotify',
+                color: '#1db954',
+                accounts: [
+                    { name: 'Podcast 1', url: 'https://open.spotify.com/show/0oeCL1QScD3v7dHeUvJjgJ', primary: true },
+                    { name: 'Podcast 2', url: 'https://open.spotify.com/show/6ahRd7QT2wcq7ldt5CJHZW' }
+                ]
+            }
+        };
+        
+        const officialPages = [
+            { name: 'Bio.site', desc: 'Link central do ecossistema', url: 'https://bio.site/AlmasdePombagira', icon: 'link' },
+            { name: 'Linktree', desc: 'Hub de links principal', url: 'https://linktr.ee/alexiarosadefogo', icon: 'tree' },
+            { name: 'Canva Site', desc: 'Site oficial no Canva', url: 'https://pombagiras.my.canva.site/', icon: 'globe' }
+        ];
+        
+        const githubPages = [
+            { name: 'pombagiras', desc: 'Organizacao principal', url: 'https://github.com/pombagiras' },
+            { name: 'Orgulho-Trans', desc: 'Comunidade Trans', url: 'https://github.com/Orgulho-Trans' },
+            { name: 'alexialuzdeferro', desc: 'Perfil pessoal', url: 'https://github.com/alexialuzdeferro' }
+        ];
+        
+        // ============================================
+        // THREE.JS SETUP
+        // ============================================
+        let scene, camera, renderer, controls;
+        let chartGroup, particleSystem;
+        let animationId = null;
+        const clock = new THREE.Clock();
+        
+        function initThree() {
+            const container = document.getElementById('canvas-container');
+            
+            scene = new THREE.Scene();
+            
+            camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.set(0, 0, 8);
+            
+            renderer = new THREE.WebGLRenderer({ 
+                antialias: true, 
+                alpha: true,
+                powerPreference: 'high-performance'
+            });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            container.appendChild(renderer.domElement);
+            
+            controls = new OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.dampingFactor = 0.05;
+            controls.enableZoom = false;
+            controls.autoRotate = true;
+            controls.autoRotateSpeed = 0.5;
+            
+            // Lighting
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.3);
+            scene.add(ambientLight);
+            
+            const pointLight1 = new THREE.PointLight(0xff4d6d, 1, 20);
+            pointLight1.position.set(5, 5, 5);
+            scene.add(pointLight1);
+            
+            const pointLight2 = new THREE.PointLight(0xd4a574, 0.8, 20);
+            pointLight2.position.set(-5, -5, 5);
+            scene.add(pointLight2);
+            
+            createChart();
+            createParticles();
+            createBackground();
+            
+            animate();
+        }
+        
+        function createChart() {
+            chartGroup = new THREE.Group();
+            
+            const categories = Object.entries(socialNetworks);
+            const total = categories.reduce((sum, [, data]) => sum + data.accounts.length, 0);
+            
+            let startAngle = 0;
+            const radius = 3;
+            const tubeRadius = 0.8;
+            const segments = 64;
+            const radialSegments = 16;
+            
+            categories.forEach(([key, data], index) => {
+                const proportion = data.accounts.length / total;
+                const angle = proportion * Math.PI * 2;
+                
+                // Create torus segment
+                const geometry = new THREE.TorusGeometry(
+                    radius,
+                    tubeRadius,
+                    radialSegments,
+                    Math.max(8, Math.floor(segments * proportion)),
+                    angle
+                );
+                
+                const color = new THREE.Color(data.color);
+                const material = new THREE.MeshPhongMaterial({
+                    color: color,
+                    emissive: color,
+                    emissiveIntensity: 0.2,
+                    shininess: 100,
+                    transparent: true,
+                    opacity: 0.9
+                });
+                
+                const mesh = new THREE.Mesh(geometry, material);
+                mesh.rotation.z = startAngle;
+                mesh.userData = { category: key, data: data };
+                
+                chartGroup.add(mesh);
+                
+                // Add connecting spheres at boundaries
+                const sphereGeometry = new THREE.SphereGeometry(0.15, 16, 16);
+                const sphereMaterial = new THREE.MeshPhongMaterial({
+                    color: 0xffffff,
+                    emissive: color,
+                    emissiveIntensity: 0.5
+                });
+                
+                const endAngle = startAngle + angle;
+                const sphere = new THREE.Mesh(sphereGeometry, sphereMaterial);
+                sphere.position.x = Math.cos(endAngle) * radius;
+                sphere.position.y = Math.sin(endAngle) * radius;
+                chartGroup.add(sphere);
+                
+                startAngle += angle;
+            });
+            
+            // Center core
+            const coreGeometry = new THREE.IcosahedronGeometry(0.8, 2);
+            const coreMaterial = new THREE.MeshPhongMaterial({
+                color: 0xff4d6d,
+                emissive: 0xff4d6d,
+                emissiveIntensity: 0.3,
+                wireframe: true
+            });
+            const core = new THREE.Mesh(coreGeometry, coreMaterial);
+            core.userData = { isCore: true };
+            chartGroup.add(core);
+            
+            chartGroup.rotation.x = Math.PI / 2;
+            scene.add(chartGroup);
+        }
+        
+        function createParticles() {
+            const particleCount = 500;
+            const positions = new Float32Array(particleCount * 3);
+            const colors = new Float32Array(particleCount * 3);
+            const sizes = new Float32Array(particleCount);
+            
+            for (let i = 0; i < particleCount; i++) {
+                const radius = 5 + Math.random() * 10;
+                const theta = Math.random() * Math.PI * 2;
+                const phi = Math.random() * Math.PI;
+                
+                positions[i * 3] = radius * Math.sin(phi) * Math.cos(theta);
+                positions[i * 3 + 1] = radius * Math.sin(phi) * Math.sin(theta);
+                positions[i * 3 + 2] = radius * Math.cos(phi);
+                
+                const colorChoice = Math.random();
+                if (colorChoice < 0.33) {
+                    colors[i * 3] = 1;
+                    colors[i * 3 + 1] = 0.3;
+                    colors[i * 3 + 2] = 0.43;
+                } else if (colorChoice < 0.66) {
+                    colors[i * 3] = 0.83;
+                    colors[i * 3 + 1] = 0.65;
+                    colors[i * 3 + 2] = 0.46;
+                } else {
+                    colors[i * 3] = 1;
+                    colors[i * 3 + 1] = 0.55;
+                    colors[i * 3 + 2] = 0.26;
+                }
+                
+                sizes[i] = Math.random() * 3 + 1;
+            }
+            
+            const geometry = new THREE.BufferGeometry();
+            geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+            geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+            geometry.setAttribute('size', new THREE.BufferAttribute(sizes, 1));
+            
+            const material = new THREE.PointsMaterial({
+                size: 0.05,
+                vertexColors: true,
+                transparent: true,
+                opacity: 0.6,
+                blending: THREE.AdditiveBlending
+            });
+            
+            particleSystem = new THREE.Points(geometry, material);
+            scene.add(particleSystem);
+        }
+        
+        function createBackground() {
+            // Gradient sphere for background glow
+            const bgGeometry = new THREE.SphereGeometry(50, 32, 32);
+            const bgMaterial = new THREE.MeshBasicMaterial({
+                color: 0x0a0a0f,
+                side: THREE.BackSide
+            });
+            const bgMesh = new THREE.Mesh(bgGeometry, bgMaterial);
+            scene.add(bgMesh);
+        }
+        
+        function animate() {
+            animationId = requestAnimationFrame(animate);
+            
+            const time = clock.getElapsedTime();
+            
+            if (chartGroup) {
+                chartGroup.rotation.y = time * 0.1;
+                
+                chartGroup.children.forEach((child, index) => {
+                    if (child.userData.isCore) {
+                        child.rotation.x = time * 0.5;
+                        child.rotation.y = time * 0.3;
+                    }
+                });
+            }
+            
+            if (particleSystem) {
+                particleSystem.rotation.y = time * 0.02;
+                particleSystem.rotation.x = time * 0.01;
+            }
+            
+            controls.update();
+            renderer.render(scene, camera);
+        }
+        
+        function handleResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+        
+        // ============================================
+        // UI RENDERING
+        // ============================================
+        function renderLegend() {
+            const container = document.getElementById('legend-container');
+            const categories = Object.entries(socialNetworks);
+            const total = categories.reduce((sum, [, data]) => sum + data.accounts.length, 0);
+            
+            container.innerHTML = categories.map(([key, data]) => {
+                const percentage = ((data.accounts.length / total) * 100).toFixed(1);
+                return `
+                    <div class="legend-item flex items-center gap-3 p-3 rounded-lg hover:bg-[var(--card)]" data-category="${key}">
+                        <div class="w-4 h-4 rounded-full" style="background: ${data.color}"></div>
+                        <div class="flex-1">
+                            <div class="font-medium">${data.name}</div>
+                            <div class="text-xs text-[var(--muted)]">${data.accounts.length} conta${data.accounts.length > 1 ? 's' : ''}</div>
+                        </div>
+                        <div class="text-sm font-mono" style="color: ${data.color}">${percentage}%</div>
+                    </div>
+                `;
+            }).join('');
+        }
+        
+        function renderSocialGrid() {
+            const container = document.getElementById('social-grid');
+            const categories = Object.entries(socialNetworks);
+            
+            container.innerHTML = categories.map(([key, data], catIndex) => `
+                <div class="category-section glass-card p-6 glow-border" data-delay="${catIndex * 100}">
+                    <div class="flex items-center gap-4 mb-6">
+                        <div class="icon-wrapper" style="background: ${data.color}20">
+                            <div class="w-3 h-3 rounded-full" style="background: ${data.color}"></div>
+                        </div>
+                        <div class="flex-1">
+                            <h3 class="font-display text-xl font-bold">${data.name}</h3>
+                            <p class="text-sm text-[var(--muted)]">${data.accounts.length} conta${data.accounts.length > 1 ? 's' : ''}</p>
+                        </div>
+                        <div class="text-2xl font-black" style="color: ${data.color}">${data.accounts.length}</div>
+                    </div>
+                    
+                    <div class="space-y-3">
+                        ${data.accounts.map((account, accIndex) => `
+                            <a href="${account.url}" target="_blank" rel="noopener noreferrer" 
+                               class="social-btn flex items-center gap-4 p-4 rounded-xl bg-[var(--bg)] border border-[var(--border)] block"
+                               style="animation-delay: ${accIndex * 50}ms">
+                                <div class="w-10 h-10 rounded-full flex items-center justify-center" 
+                                     style="background: linear-gradient(135deg, ${data.color}40, ${data.color}20)">
+                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="${data.color}" stroke-width="2">
+                                        <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
+                                        <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
+                                    </svg>
+                                </div>
+                                <div class="flex-1 min-w-0">
+                                    <div class="font-medium truncate">${account.name}</div>
+                                    <div class="text-xs text-[var(--muted)] truncate">${new URL(account.url).hostname}</div>
+                                </div>
+                                ${account.primary ? '<span class="text-xs px-2 py-1 rounded-full bg-[var(--accent)]20 text-[var(--accent)]">Principal</span>' : ''}
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="opacity-50">
+                                    <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+                                    <polyline points="15 3 21 3 21 9"/>
+                                    <line x1="10" y1="14" x2="21" y2="3"/>
+                                </svg>
+                            </a>
+                        `).join('')}
+                    </div>
+                </div>
+            `).join('');
+            
+            // Trigger animations
+            setTimeout(() => {
+                document.querySelectorAll('.category-section').forEach((el, i) => {
+                    setTimeout(() => el.classList.add('visible'), i * 100);
+                });
+            }, 300);
+        }
+        
+        function renderOfficialPages() {
+            const container = document.getElementById('official-pages');
+            
+            const icons = {
+                link: '<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>',
+                tree: '<path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/>',
+                globe: '<circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>'
+            };
+            
+            container.innerHTML = officialPages.map((page, index) => `
+                <a href="${page.url}" target="_blank" rel="noopener noreferrer" 
+                   class="category-section glass-card p-6 block hover:border-[var(--accent)] transition-all group" data-delay="${index * 100}">
+                    <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-[var(--accent)] to-[var(--gold)] flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2">
+                            ${icons[page.icon]}
+                        </svg>
+                    </div>
+                    <h4 class="font-display text-xl font-bold mb-2">${page.name}</h4>
+                    <p class="text-sm text-[var(--muted)]">${page.desc}</p>
+                </a>
+            `).join('');
+        }
+        
+        function renderGithubPages() {
+            const container = document.getElementById('github-pages');
+            
+            container.innerHTML = githubPages.map((page, index) => `
+                <a href="${page.url}" target="_blank" rel="noopener noreferrer" 
+                   class="category-section glass-card p-6 block hover:border-[#333] transition-all group" data-delay="${index * 100}">
+                    <div class="flex items-center gap-4 mb-4">
+                        <svg width="32" height="32" viewBox="0 0 24 24" fill="currentColor" class="text-white">
+                            <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
+                        </svg>
+                        <div>
+                            <h4 class="font-display text-lg font-bold">${page.name}</h4>
+                            <p class="text-sm text-[var(--muted)]">${page.desc}</p>
+                        </div>
+                    </div>
+                </a>
+            `).join('');
+        }
+        
+        // ============================================
+        // INTERACTIONS
+        // ============================================
+        function setupInteractions() {
+            // Progress circle animation
+            const progressCircle = document.getElementById('progress-circle');
+            if (progressCircle) {
+                setTimeout(() => {
+                    progressCircle.style.strokeDashoffset = '40';
+                }, 500);
+            }
+            
+            // Tooltip
+            const tooltip = document.getElementById('tooltip');
+            
+            document.querySelectorAll('.social-btn').forEach(btn => {
+                btn.addEventListener('mouseenter', (e) => {
+                    const rect = btn.getBoundingClientRect();
+                    tooltip.textContent = 'Clique para visitar';
+                    tooltip.style.left = rect.left + 'px';
+                    tooltip.style.top = (rect.top - 40) + 'px';
+                    tooltip.classList.add('visible');
+                });
+                
+                btn.addEventListener('mouseleave', () => {
+                    tooltip.classList.remove('visible');
+                });
+            });
+            
+            // Legend hover effects
+            document.querySelectorAll('.legend-item').forEach(item => {
+                item.addEventListener('mouseenter', () => {
+                    const category = item.dataset.category;
+                    item.classList.add('active');
+                    
+                    // Highlight corresponding 3D segment
+                    if (chartGroup) {
+                        chartGroup.children.forEach(child => {
+                            if (child.userData.category === category) {
+                                child.material.emissiveIntensity = 0.8;
+                                child.scale.set(1.05, 1.05, 1.05);
+                            }
+                        });
+                    }
+                });
+                
+                item.addEventListener('mouseleave', () => {
+                    item.classList.remove('active');
+                    
+                    if (chartGroup) {
+                        chartGroup.children.forEach(child => {
+                            if (child.userData.category) {
+                                child.material.emissiveIntensity = 0.2;
+                                child.scale.set(1, 1, 1);
+                            }
+                        });
+                    }
+                });
+            });
+            
+            // Modal
+            const modal = document.getElementById('modal');
+            const modalBody = document.getElementById('modal-body');
+            const closeModal = document.getElementById('close-modal');
+            
+            closeModal.addEventListener('click', () => {
+                modal.classList.remove('active');
+            });
+            
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) {
+                    modal.classList.remove('active');
+                }
+            });
+            
+            // View toggle
+            const viewToggle = document.getElementById('view-toggle');
+            let autoRotate = true;
+            
+            viewToggle.addEventListener('click', () => {
+                autoRotate = !autoRotate;
+                if (controls) {
+                    controls.autoRotate = autoRotate;
+                }
+                viewToggle.querySelector('span').textContent = autoRotate ? '3D View' : 'Free View';
+            });
+            
+            // Intersection Observer for animations
+            const observer = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        entry.target.classList.add('visible');
+                    }
+                });
+            }, { threshold: 0.1 });
+            
+            document.querySelectorAll('.category-section').forEach(el => {
+                observer.observe(el);
+            });
+        }
+        
+        // ============================================
+        // INIT
+        // ============================================
+        function init() {
+            initThree();
+            renderLegend();
+            renderSocialGrid();
+            renderOfficialPages();
+            renderGithubPages();
+            setupInteractions();
+            
+            window.addEventListener('resize', handleResize);
+        }
+        
+        init();
+    </script>
+</body>
+</html>
